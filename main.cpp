@@ -12,11 +12,8 @@
 
 int main(int argc, const char * argv[])
 {
-
-  // insert code here...
-//  std::cout << "Hello, World!\n";
   int size;
-//  std::cout << "Please input size: ";
+
   std::cin >> size;
   Map flowMap(size);
   PointT a;
@@ -38,13 +35,17 @@ int main(int argc, const char * argv[])
     std::cin >> color;
   }
   flowMap.setMap();
-  //flowMap.generatePaths();
+  double time = omp_get_wtime();
   
+  flowMap.generatePaths();
   //flowMap.printPath("red");
-  std::vector<std::map<std::pair<int, int>, std::string> > solution = flowMap.analyzeFlowMap();
-  
+  //std::vector<std::map<std::pair<int, int>, std::string> > solution = flowMap.analyzeFlowMap();
+  std::vector<std::map<std::pair<int, int>, std::string> > solution = flowMap.analyzePaths();
+  time = omp_get_wtime() - time;
   std::cout<<std::endl;
-  std::cout << solution.size() << std::endl;
+  
+  std::cout << solution.size() <<" and time is:"<<time<< std::endl;
+  if (solution.size())
   for (int i = 0 ; i < size; ++i){
     for (int j = 0; j < size; ++j){
       std::cout <<"[";

@@ -16,7 +16,7 @@ void Map::setDot(std::string c_, PointT p1_, PointT p2_){
   
   DotsMap.insert(std::pair<std::string, DotPairT*>(c_, new DotPairT(c_, p1_, p2_)));
   Dots.push_back(new DotPairT(c_, p1_, p2_));
-  
+  colorList.push_back(c_);
   return;
 }
 
@@ -39,23 +39,147 @@ void Map::setMap(){
 
 std::vector<std::map<std::pair<int, int>, std::string> > Map::analyzeFlowMap(){
   bool found = false;
-  std::vector<std::map<std::pair<int, int>, std::string> > solution = analyzeDotPair(DotsMap.begin(), initMapInfo, found);
-  return solution;
+  //  std::vector<std::map<std::pair<int, int>, std::string> > solution = analyzeDotPair(DotsMap.begin(), initMapInfo, found);
+  std::vector<PathNodeT*>* pathList = new std::vector<PathNodeT*>;
+  std::map<std::string, DotPairT*>::iterator map_it = DotsMap.begin();
+
+  PointT start = map_it->second->loc1;
+  PointT end = map_it->second->loc2;
+  
+  std::queue<PathNodeT*> BFS;
+  std::map<std::pair<int, int>, std::string> tmpMap;
+  std::map<std::pair<int, int>, std::string> curMapInfo = initMapInfo;
+  PathNodeT* curPathNode = new PathNodeT;
+  PointT curPoint;
+  PointT nextPoint;
+  
+  curPathNode->prev = NULL;
+  curPathNode->cur = start;
+  curPathNode->pathMap = curMapInfo;
+  
+  BFS.push(curPathNode);
+  
+  while (!BFS.empty()){
+    curPathNode = BFS.front();
+    curPoint = curPathNode->cur;
+    tmpMap = curPathNode->pathMap;
+    BFS.pop();
+    /*
+    if (curPoint.x == end.x && curPoint.y == end.y){
+      pathList->push_back(curPathNode);
+      continue;
+    }
+    */
+    nextPoint =PointT(curPoint.x - 1, curPoint.y);
+    if (nextPoint.x == end.x && nextPoint.y == end.y){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      continue;
+    }
+    if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+    }
+    
+    
+    nextPoint =PointT(curPoint.x + 1, curPoint.y);
+    if (nextPoint.x == end.x && nextPoint.y == end.y){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      continue;
+    }
+    if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+    }
+    
+    nextPoint =PointT(curPoint.x, curPoint.y - 1);
+    if (nextPoint.x == end.x && nextPoint.y == end.y){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      continue;
+    }
+    if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+    }
+    
+    nextPoint =PointT(curPoint.x, curPoint.y + 1);
+    if (nextPoint.x == end.x && nextPoint.y == end.y){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      continue;
+    }
+    if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+      tmpMap = curPathNode->pathMap;
+      tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+    }
+    delete curPathNode;
+  }
+  // Add one path to map and analyze next dot pair
+  std::vector<std::map<std::pair<int, int>, std::string> > solutions;
+    
+  
+  //  for (std::vector<PathNodeT*>::iterator it = pathList->begin(); it != pathList->end(); ++it) {
+  omp_lock_t lock;
+  omp_init_lock(&lock);
+  
+  #pragma omp parallel for schedule(dynamic)
+  for(int i = 0; i < pathList->size(); ++i){
+    //nextMapInfo = (*it)->pathMap;
+    if (!found){
+    std::map<std::pair<int, int>, std::string> nextMapInfo;
+    std::vector<std::map<std::pair<int, int>, std::string> > tmpSolutions;
+    PathNodeT* tmp;
+
+    nextMapInfo = pathList->at(i)->pathMap;
+    /*
+    tmp = *it;
+    while(tmp){
+      nextMapInfo.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(tmp->cur.x, tmp->cur.y), map_it->first));
+      //nextColorMap.push_back(DotT(map_it->first, tmp->cur));
+      tmp = tmp->prev;
+    }*/
+    std::map<std::string, DotPairT*>::iterator tmpIt = map_it;
+    ++tmpIt;
+    if (tmpIt == DotsMap.end()){
+      omp_set_lock(&lock);
+      solutions.push_back(nextMapInfo);
+      omp_unset_lock(&lock);
+      /* Modified */
+      found = true;
+      //break;
+      //return solutions;
+      /* Modified */
+    }
+    else{
+      tmpSolutions = analyzeDotPair(tmpIt, nextMapInfo, found);// Modified
+      omp_set_lock(&lock);
+      solutions.insert(solutions.end(), tmpSolutions.begin(), tmpSolutions.end());
+      omp_unset_lock(&lock);
+      /* Modified */
+      //if (found){
+      //	break;
+      //}
+        
+    }
+    }
+  }
+  return solutions;
 }
 
 bool Map::isCollide(PathNodeT* path, PointT point, std::map<std::pair<int, int>, std::string> currentMap){
   if (point.x < 0 || point.x >= size || point.y < 0 || point.y >= size)
     return true;
-  /*
-  while (path){
-    if (point.x == path->cur.x && point.y == path->cur.y)
-      return true;
-    path = path->prev;
-  }
-  
-  if (currentMap.find(std::pair<int, int>(point.x, point.y)) != currentMap.end())
-    return true;
-  */
+
   if (path->pathMap.find(std::pair<int, int>(point.x, point.y)) != path->pathMap.end())
     return true;
   
@@ -148,7 +272,7 @@ std::vector<std::map<std::pair<int, int>, std::string> > Map::analyzeDotPair(std
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
       BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
     }
-    
+    delete curPathNode;
   }
   // Add one path to map and analyze next dot pair
   std::map<std::pair<int, int>, std::string> nextMapInfo;
@@ -269,6 +393,7 @@ void Map::generatePathsForPair(std::string color){
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), color));
       BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
     }
+    //delete curPathNode;
   }
   
   std::vector<MapInfo> tmp;
@@ -284,14 +409,21 @@ void Map::generatePathsForPair(std::string color){
 }
 
 void Map::generatePaths(){
-  for (std::map<std::string, DotPairT*>::iterator it = DotsMap.begin();
-       it != DotsMap.end();
-       ++it) {
-    generatePathsForPair(it->first);
-    std::cout<<"pass one "<<it->first<<"\t"<<possiblePaths[it->first]->size()<<std::endl;
-  }
+#pragma omp parallel for schedule(dynamic)
+//  for (std::map<std::string, DotPairT*>::iterator it = DotsMap.begin();
+  //     it != DotsMap.end();
+  //   ++it) {
+  for (int i = 0; i < DotsMap.size();++i)
+    generatePathsForPair(colorList[i]);
+  //    generatePathsForPair(it->first);
+    //std::cout<<"pass one "<<it->first<<"\t"<<possiblePaths[it->first]->size()<<std::endl;
+  //}
 }
-std::vector<MapInfo> Map::analyzePathsHelper(std::map<std::string, DotPairT*>::iterator map_it, MapInfo curMap){
+std::vector<MapInfo> Map::analyzePathsHelper(std::map<std::string, DotPairT*>::iterator map_it, MapInfo curMap, bool &found){
+  if (found){
+    std::vector<MapInfo> something;
+    return something;
+  }
   // Exception control;
   //std::cout<<"Analyze for "<<map_it->first<<std::endl;
   // Actual work;
@@ -317,11 +449,16 @@ std::vector<MapInfo> Map::analyzePathsHelper(std::map<std::string, DotPairT*>::i
     if (!collide){
       std::map<std::string, DotPairT*>::iterator tmpIt = map_it;
       ++tmpIt;
-      if (tmpIt == DotsMap.end())
+      if (tmpIt == DotsMap.end()){
         solutions.push_back(tmpMap);
+	found = true;
+	return solutions;
+      }
       else{
-        tmpSol = analyzePathsHelper(tmpIt, tmpMap);
+        tmpSol = analyzePathsHelper(tmpIt, tmpMap, found);
         solutions.insert(solutions.end(), tmpSol.begin(), tmpSol.end());
+	if (found)
+	  return solutions;
       }
     }
   
@@ -332,7 +469,8 @@ std::vector<MapInfo> Map::analyzePathsHelper(std::map<std::string, DotPairT*>::i
 
 std::vector<MapInfo> Map::analyzePaths(){
   MapInfo newMap;
-  return analyzePathsHelper(DotsMap.begin(), newMap);
+  bool found = false;
+  return analyzePathsHelper(DotsMap.begin(), newMap, found);
 }
 
 void Map::printPath(std::string color){

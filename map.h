@@ -11,10 +11,12 @@
 
 #include <iostream>
 #include <vector>
+#include <cstdlib>
 #include <map>
 #include <set>
 #include <queue>
-//#include <omp.h>
+#include <stack>
+#include <omp.h>
 #define EMPTY NULL
 
 typedef std::map<std::pair<int, int>, std::string> MapInfo;
@@ -61,6 +63,7 @@ class Map{
   std::vector<DotPairT*> Dots;
   std::map<std::string, DotPairT*> DotsMap;
   std::string **FlowMap;
+  std::vector<std::string> colorList;
 //  std::set<std::pair<int, int> > currentMap;
 //  std::set<std::pair<int, int> > prevMap;
 //  mapInfoT initMap;
@@ -69,7 +72,7 @@ class Map{
   std::map<std::pair<int, int>, std::string> initMapInfo;
   
   void generatePathsForPair(std::string);
-  std::vector<MapInfo> analyzePathsHelper(std::map<std::string, DotPairT*>::iterator, MapInfo);
+  std::vector<MapInfo> analyzePathsHelper(std::map<std::string, DotPairT*>::iterator, MapInfo, bool& found);
   std::vector<std::map<std::pair<int, int>, std::string> > analyzeDotPair(std::map<std::string, DotPairT*>::iterator, std::map<std::pair<int, int>, std::string>, bool &found);
   bool isCollide(PathNodeT*, PointT, std::map<std::pair<int, int>, std::string>);
 public:
