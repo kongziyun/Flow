@@ -16,10 +16,12 @@
 #include <set>
 #include <queue>
 #include <stack>
+#include <pthread.h>
 #include <omp.h>
 #define EMPTY NULL
 
 typedef std::map<std::pair<int, int>, std::string> MapInfo;
+
 
 struct PointT {
   int x;
@@ -58,8 +60,25 @@ struct mapInfoT {
   std::vector<DotT> colorDotMap;
 };
 
+struct intNodeT{
+  int curLoc;
+  std::vector<int> path;
+  intNodeT(int l_, std::vector<int> p_):curLoc(l_), path(p_){}
+};
+
+struct pthreadInput {
+  int tid;
+  std::map<std::string, DotPairT*>::iterator map_it;
+  MapInfo mapInfo;
+  pthreadInput(int t_, std::map<std::string, DotPairT*>::iterator i_, MapInfo m_): tid(t_), map_it(i_), mapInfo(m_){}
+};
+
 class Map{
   int size;
+  bool found;
+  omp_lock_t lockFound;
+  bool *threadUsing;
+  
   std::vector<DotPairT*> Dots;
   std::map<std::string, DotPairT*> DotsMap;
   std::string **FlowMap;
@@ -70,23 +89,43 @@ class Map{
   //std::map<std::string, std::vector<MapInfo> > possiblePaths;
   std::map<std::string, std::vector<PathNodeT*>*> possiblePaths;
   std::map<std::pair<int, int>, std::string> initMapInfo;
+  MapInfo* solution;
+  std::vector<int> initIntMap;
+ 
+  //void generateIntPathsForPair(std::string);
   
   void generatePathsForPair(std::string);
   std::vector<MapInfo> analyzePathsHelper(std::map<std::string, DotPairT*>::iterator, MapInfo, bool& found);
-  std::vector<std::map<std::pair<int, int>, std::string> > analyzeDotPair(std::map<std::string, DotPairT*>::iterator, std::map<std::pair<int, int>, std::string>, bool &found);
+  void* analyzeDotPair(void* input);
   bool isCollide(PathNodeT*, PointT, std::map<std::pair<int, int>, std::string>);
+  void combTosep(int comb, int &x, int &y){
+    x = comb % size;
+    y = comb / size;
+    return;
+  }
+  void sepTocomb(int &comb, int x, int y){
+    comb = x + y * size;
+    return;
+  }
+  
+  int getNextId();
 public:
-  Map(){}
-  Map(int size_):size(size_){}
+  Map(){found = false; solution = NULL;}
+  Map(int size_):size(size_){found = false; solution = NULL;}
   //std::map<std::string, std::vector<PathNodeT*>*> getPaths(){return possiblePaths;}
   
   void printPath(std::string);
+  void setThreadNum(int a){
+    threadUsing = new bool[a];
+    for (int i = 0; i < a; ++i)
+      threadUsing[i] = false;
+  }
   
   void setDot(std::string color, PointT p1, PointT p2);
   void setMap();
   
-  std::vector<std::map<std::pair<int, int>, std::string> > analyzeFlowMap();
-
+  void analyzeFlowMap();
+  MapInfo *getMap(){return solution;}
   void generatePaths();
 
   std::vector<MapInfo> analyzePaths();

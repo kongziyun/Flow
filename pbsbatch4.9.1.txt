@@ -1,0 +1,25 @@
+#!/bin/sh
+#PBS -S /bin/sh
+#PBS -N job4.9.mania.31.9
+#PBS -A eecs587f13_flux
+#PBS -l qos=flux
+#PBS -l nodes=1:ppn=4,walltime=20:00:0
+#PBS -l pmem=16gb
+#PBS -q flux
+#PBS -M kongzy@umich.edu
+#PBS -m abe
+#PBS -V
+#
+echo "I ran on:"
+cat $PBS_NODEFILE
+
+export OMP_NUM_THREADS=4
+mkdir /tmp/${PBS_JOBID}
+cd /tmp/${PBS_JOBID}
+cp ~/587/final/icpcflow_balanced .
+cp ~/587/final/input.9.mania.31.9 .
+
+./icpcflow_balanced 1.0 < input.9.mania.31.9
+
+cd ~
+/bin/rm -rf /tmp/${PBS_JOBID}

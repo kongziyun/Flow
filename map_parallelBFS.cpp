@@ -8,6 +8,7 @@
 
 #include "map.h"
 extern double factor;
+extern int numThreads;
 void Map::setDot(std::string c_, PointT p1_, PointT p2_){
   if (c_.empty()){
     std::cerr << "Error: Color name is empty!"<<std::endl;
@@ -52,7 +53,8 @@ std::vector<std::map<std::pair<int, int>, std::string> > Map::analyzeFlowMap(){
   PointT start = map_it->second->loc1;
   PointT end = map_it->second->loc2;
   
-  std::queue<PathNodeT*> BFS;
+  
+  std::queue<PathNodeT*> masterBFS;
   std::map<std::pair<int, int>, std::string> tmpMap;
   std::map<std::pair<int, int>, std::string> curMapInfo = initMapInfo;
   PathNodeT* curPathNode = new PathNodeT;
@@ -63,53 +65,57 @@ std::vector<std::map<std::pair<int, int>, std::string> > Map::analyzeFlowMap(){
   curPathNode->cur = start;
   curPathNode->pathMap = curMapInfo;
   
-  BFS.push(curPathNode);
-  int count1=0;
-  while (!BFS.empty()){
-    curPathNode = BFS.front();
+  omp_lock_t lock;
+  omp_init_lock(&lock);
+  
+  int tick = 0;
+  int count = 1;
+  masterBFS.push(curPathNode);
+//  tick = (tick + 1) % numThreads;
+  int solCount=0;
+  while (count < numThreads *2 && masterBFS.size() != 0){
+    curPathNode = masterBFS.front();
     curPoint = curPathNode->cur;
     tmpMap = curPathNode->pathMap;
-    BFS.pop();
-    /*
+    masterBFS.pop();
+    --count;
     if (tmpMap.size() > size * size * factor){
       delete curPathNode;
       break;
     }
-    */
-    /*
-    if (curPoint.x == end.x && curPoint.y == end.y){
-      pathList->push_back(curPathNode);
-      continue;
-    }
-    */
+    
     nextPoint =PointT(curPoint.x - 1, curPoint.y);
     if (nextPoint.x == end.x && nextPoint.y == end.y){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
-      std::cout<<++count1<<map_it->first<<std::endl;
+      std::cout<<++solCount<<map_it->first<<std::endl;
+
       continue;
     }
+    
     if (!isCollide(curPathNode, nextPoint, curMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
-      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      masterBFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      ++count;
     }
-    
     
     nextPoint =PointT(curPoint.x + 1, curPoint.y);
     if (nextPoint.x == end.x && nextPoint.y == end.y){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+      
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
-      std::cout<<++count1<<map_it->first<<std::endl;
+      std::cout<<++solCount<<map_it->first<<std::endl;
 
       continue;
     }
     if (!isCollide(curPathNode, nextPoint, curMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
-      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      masterBFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      ++count;
     }
     
     nextPoint =PointT(curPoint.x, curPoint.y - 1);
@@ -117,14 +123,15 @@ std::vector<std::map<std::pair<int, int>, std::string> > Map::analyzeFlowMap(){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
-      std::cout<<++count1<<map_it->first<<std::endl;
+      std::cout<<++solCount<<map_it->first<<std::endl;
 
       continue;
     }
     if (!isCollide(curPathNode, nextPoint, curMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
-      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      masterBFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      ++count;
     }
     
     nextPoint =PointT(curPoint.x, curPoint.y + 1);
@@ -132,25 +139,151 @@ std::vector<std::map<std::pair<int, int>, std::string> > Map::analyzeFlowMap(){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
-      std::cout<<++count1<<map_it->first<<std::endl;
+      std::cout<<++solCount<<map_it->first<<std::endl;
 
       continue;
     }
     if (!isCollide(curPathNode, nextPoint, curMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
-      BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      masterBFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+      ++count;
     }
     delete curPathNode;
   }
+  
+  if (masterBFS.size() != 0){
+    omp_lock_t locks[numThreads];
+    std::queue<PathNodeT*> *BFS = new std::queue<PathNodeT*>[numThreads];
+    for (int i = 0; i < numThreads; ++i){
+      omp_init_lock(&locks[i]);
+    }
+    int tick = 0;
+    while (masterBFS.size() != 0) {
+      BFS[tick].push(masterBFS.front());
+      masterBFS.pop();
+      tick = (tick + 1) % numThreads;
+    }
+#pragma omp parallel
+    {
+      int threadId = omp_get_thread_num();
+      int nextId = (threadId + 1) % numThreads;
+      PathNodeT* curPathNode;
+      PointT curPoint;
+      PointT nextPoint;
+      std::map<std::pair<int, int>, std::string> tmpMap;
+      
+      while (BFS[threadId].size() != 0){
+        curPathNode = BFS[threadId].front();
+       // std::cout<<threadId<<"\t"<<numThreads<<std::endl;
+        curPoint = curPathNode->cur;
+        tmpMap = curPathNode->pathMap;
+
+        omp_set_lock(&locks[threadId]);
+        BFS[threadId].pop();
+        omp_unset_lock(&locks[threadId]);
+        
+        if (tmpMap.size() > size * size * factor){
+          delete curPathNode;
+          break;
+        }
+        
+        nextPoint =PointT(curPoint.x - 1, curPoint.y);
+        if (nextPoint.x == end.x && nextPoint.y == end.y){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          omp_set_lock(&lock);
+          pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          std::cout<<++solCount<<map_it->first<<std::endl;
+
+          omp_unset_lock(&lock);
+          
+          continue;
+        }
+        
+        if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+        //BFS[threadId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_set_lock(&locks[nextId]);
+          BFS[nextId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_unset_lock(&locks[nextId]);
+        }
+        
+        nextPoint =PointT(curPoint.x + 1, curPoint.y);
+        if (nextPoint.x == end.x && nextPoint.y == end.y){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          omp_set_lock(&lock);
+          pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          std::cout<<++solCount<<map_it->first<<std::endl;
+
+          omp_unset_lock(&lock);
+          continue;
+        }
+        if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          //BFS[threadId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_set_lock(&locks[nextId]);
+          BFS[nextId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_unset_lock(&locks[nextId]);
+
+        }
+        
+        nextPoint =PointT(curPoint.x, curPoint.y - 1);
+        if (nextPoint.x == end.x && nextPoint.y == end.y){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          omp_set_lock(&lock);
+          pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          std::cout<<++solCount<<map_it->first<<std::endl;
+
+          omp_unset_lock(&lock);
+          continue;
+        }
+        if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          //BFS[threadId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_set_lock(&locks[nextId]);
+          BFS[nextId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_unset_lock(&locks[nextId]);
+
+        }
+        
+        nextPoint =PointT(curPoint.x, curPoint.y + 1);
+        if (nextPoint.x == end.x && nextPoint.y == end.y){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          omp_set_lock(&lock);
+          pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          std::cout<<++solCount<<map_it->first<<std::endl;
+
+          omp_unset_lock(&lock);
+          continue;
+        }
+        if (!isCollide(curPathNode, nextPoint, curMapInfo)){
+          tmpMap = curPathNode->pathMap;
+          tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), map_it->first));
+          //BFS[threadId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_set_lock(&locks[nextId]);
+          BFS[nextId].push(new PathNodeT(curPathNode, nextPoint, tmpMap));
+          omp_unset_lock(&locks[nextId]);
+
+        }
+        delete curPathNode;
+      }
+      
+    }
+  }
   // Add one path to map and analyze next dot pair
   std::vector<std::map<std::pair<int, int>, std::string> > solutions;
-    
+  std::cout<<"end\n";
   
   //  for (std::vector<PathNodeT*>::iterator it = pathList->begin(); it != pathList->end(); ++it) {
-  omp_lock_t lock;
-  omp_init_lock(&lock);
-  int count = 0;
+
+
   #pragma omp parallel for schedule(dynamic)
   for(int i = 0; i < pathList->size(); ++i){
     
@@ -353,7 +486,7 @@ void Map::generatePathsForPair(std::string color){
   PathNodeT* curPathNode = new PathNodeT;
   PointT curPoint;
   PointT nextPoint;
-  int count = 0;
+  
   curPathNode->prev = NULL;
   curPathNode->cur = start;
   curPathNode->pathMap = initMapInfo;
@@ -365,10 +498,8 @@ void Map::generatePathsForPair(std::string color){
     curPoint = curPathNode->cur;
     tmpMap = curPathNode->pathMap;
     BFS.pop();
-    if (tmpMap.size()> size*size*factor){
-      delete curPathNode;
+    if (tmpMap.size() - initMapInfo.size() > size*size/2)
       break;
-    }
     /*
      if (curPoint.x == end.x && curPoint.y == end.y){
      pathList->push_back(curPathNode);
@@ -382,7 +513,7 @@ void Map::generatePathsForPair(std::string color){
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
       continue;
     }
-    if (!isCollide(curPathNode, nextPoint, tmpMap)){
+    if (!isCollide(curPathNode, nextPoint, initMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), color));
       BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
@@ -396,7 +527,7 @@ void Map::generatePathsForPair(std::string color){
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
       continue;
     }
-    if (!isCollide(curPathNode, nextPoint, tmpMap)){
+    if (!isCollide(curPathNode, nextPoint, initMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), color));
       BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
@@ -409,7 +540,7 @@ void Map::generatePathsForPair(std::string color){
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
       continue;
     }
-    if (!isCollide(curPathNode, nextPoint, tmpMap)){
+    if (!isCollide(curPathNode, nextPoint, initMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), color));
       BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
@@ -422,12 +553,12 @@ void Map::generatePathsForPair(std::string color){
       pathList->push_back(new PathNodeT(curPathNode, nextPoint, tmpMap));
       continue;
     }
-    if (!isCollide(curPathNode, nextPoint, tmpMap)){
+    if (!isCollide(curPathNode, nextPoint, initMapInfo)){
       tmpMap = curPathNode->pathMap;
       tmpMap.insert(std::pair<std::pair<int, int>, std::string>(std::pair<int, int>(nextPoint.x, nextPoint.y), color));
       BFS.push(new PathNodeT(curPathNode, nextPoint, tmpMap));
     }
-    delete curPathNode;
+    //delete curPathNode;
   }
   
   std::vector<MapInfo> tmp;
@@ -443,7 +574,7 @@ void Map::generatePathsForPair(std::string color){
 }
 
 void Map::generatePaths(){
-//#pragma omp parallel for schedule(dynamic)
+#pragma omp parallel for schedule(dynamic)
 //  for (std::map<std::string, DotPairT*>::iterator it = DotsMap.begin();
   //     it != DotsMap.end();
   //   ++it) {

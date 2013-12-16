@@ -8,9 +8,14 @@
 
 #include <iostream>
 #include <iomanip>
+#include <pthread.h>
+#include <omp.h>
 #include "map.h"
+double factor;
+int numThreads;
+pthread_t* thread;
 
-int main(int argc, const char * argv[])
+//int main(int argc, const char * argv[])
 {
   int size;
 
@@ -18,6 +23,13 @@ int main(int argc, const char * argv[])
   Map flowMap(size);
   PointT a;
   PointT b;
+/*
+#pragma omp parallel
+  {
+    numThreads = omp_get_num_threads();
+//    std::cout << omp_get_num_threads()<<std::endl;
+  }
+ */
   std::string color;
 //  std::cout << "Please input color(\"quit\" if no more dot pairs): ";
   std::cin >> color;
@@ -35,26 +47,29 @@ int main(int argc, const char * argv[])
     std::cin >> color;
   }
   flowMap.setMap();
+  
+  factor = std::atof(argv[1]);
+  numThreads = std::atoi(argv[2]) - 1;
+  thread = new pthread_t[numThreads];
   double time = omp_get_wtime();
-  
-  flowMap.generatePaths();
+  //flowMap.generatePaths();
   //flowMap.printPath("red");
-  //std::vector<std::map<std::pair<int, int>, std::string> > solution = flowMap.analyzeFlowMap();
-  std::vector<std::map<std::pair<int, int>, std::string> > solution = flowMap.analyzePaths();
-  time = omp_get_wtime() - time;
+  flowMap.analyzeFlowMap();
+  //std::vector<std::map<std::pair<int, int>, std::string> > solution = flowMap.analyzePaths();
+ time = omp_get_wtime() - time;
   std::cout<<std::endl;
-  
-  std::cout << solution.size() <<" and time is:"<<time<< std::endl;
-  if (solution.size())
-  for (int i = 0 ; i < size; ++i){
-    for (int j = 0; j < size; ++j){
-      std::cout <<"[";
-      std::cout.width(10);
-      std::cout<<std::left<< solution[0][std::pair<int, int>(j, i)]<<"]";
+  if (solution){
+    std::cout <<"time is:"<<time<< std::endl;
+    for (int i = 0 ; i < size; ++i){
+      for (int j = 0; j < size; ++j){
+        std::cout <<"[";
+        std::cout.width(10);
+        std::cout<<std::left<< (*solution)[std::pair<int, int>(j, i)]<<"]";
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
   }
-  
     return 0;
+  pthread_exit(NULL);
 }
 
