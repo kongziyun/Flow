@@ -18,7 +18,7 @@
 #include <omp.h>
 #include <ctime>
 #define EMPTY NULL
-#define WHAT 1
+//#define WHAT 1
 #define combTosep(a,b,c) \
   b = a % size; c = a / size;
 
@@ -149,7 +149,7 @@ void printMap(MapIntT* map){
 
 }
 
-bool searchPath(int idx, MapIntT *curMap, std::set<int> *checkBlank, int * startNode = NULL){
+bool searchPath(int idx, MapIntT *curMap, int * startNode = NULL){
   int startComb =  (startNode)? *startNode : DotsMap[idx]->loc1;
   int endComb = DotsMap[idx]->loc2;
   int endX;
@@ -165,13 +165,11 @@ bool searchPath(int idx, MapIntT *curMap, std::set<int> *checkBlank, int * start
   for (MapIntT::iterator it = curMap->begin();
        it != curMap->end();
        ++it){
-    checkBlank->insert(it->first);
     combTosep(it->first, x, y)
     map[x][y] = true;
   }
   map[endX][endY] = false;
   if (startNode){
-    checkBlank->insert(*startNode);
     combTosep(*startNode, x, y)
     map[x][y] = true;
   }
@@ -206,82 +204,71 @@ bool searchPath(int idx, MapIntT *curMap, std::set<int> *checkBlank, int * start
     
     nextPointX = curPointX - 1;
     nextPointY = curPointY;
-  /*
+    
     if (nextPointX == endX && nextPointY == endY){
       return true;
       
     }
     else{
-   */
       if (nextPointX >= 0 && nextPointX < size &&
           nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
       {
         map[nextPointX][nextPointY] = true;
         sepTocomb(nextPoint, nextPointX, nextPointY)
-        checkBlank->insert(nextPoint);
         BFS.push(nextPoint);
       }
-    //}
+    }
     
     
     nextPointX = curPointX + 1;
     nextPointY = curPointY;
-    /*
-     if (nextPointX == endX && nextPointY == endY){
-     return true;
-     
-     }
-     else{
-     */
-    if (nextPointX >= 0 && nextPointX < size &&
-        nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
-    {
-      map[nextPointX][nextPointY] = true;
-      sepTocomb(nextPoint, nextPointX, nextPointY)
-      checkBlank->insert(nextPoint);
-      BFS.push(nextPoint);
+    if (nextPointX == endX && nextPointY == endY){
+      return true;
+      
     }
-    //}
+    else{
+      if (nextPointX >= 0 && nextPointX < size &&
+          nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
+      {
+        map[nextPointX][nextPointY] = true;
+        sepTocomb(nextPoint, nextPointX, nextPointY)
+        BFS.push(nextPoint);
+      }
+    }
     
     nextPointX = curPointX;
     nextPointY = curPointY - 1;
-    /*
-     if (nextPointX == endX && nextPointY == endY){
-     return true;
-     
-     }
-     else{
-     */
-    if (nextPointX >= 0 && nextPointX < size &&
-        nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
-    {
-      map[nextPointX][nextPointY] = true;
-      sepTocomb(nextPoint, nextPointX, nextPointY)
-      checkBlank->insert(nextPoint);
-      BFS.push(nextPoint);
+    if (nextPointX == endX && nextPointY == endY){
+      return true;
+      
     }
-    //}
+    else{
+      if (nextPointX >= 0 && nextPointX < size &&
+          nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
+      {
+        map[nextPointX][nextPointY] = true;
+        sepTocomb(nextPoint, nextPointX, nextPointY)
+        BFS.push(nextPoint);
+      }
+    }
     
     nextPointX = curPointX;
     nextPointY = curPointY + 1;
-    /*
-     if (nextPointX == endX && nextPointY == endY){
-     return true;
-     
-     }
-     else{
-     */
-    if (nextPointX >= 0 && nextPointX < size &&
-        nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
-    {
-      map[nextPointX][nextPointY] = true;
-      sepTocomb(nextPoint, nextPointX, nextPointY)
-      checkBlank->insert(nextPoint);
-      BFS.push(nextPoint);
+    if (nextPointX == endX && nextPointY == endY){
+      return true;
+      
     }
-    //}
+    else{
+      if (nextPointX >= 0 && nextPointX < size &&
+          nextPointY >= 0 && nextPointY < size && !map[nextPointX][nextPointY])
+      {
+        map[nextPointX][nextPointY] = true;
+        sepTocomb(nextPoint, nextPointX, nextPointY)
+        BFS.push(nextPoint);
+      }
+    }
   }
-  return map[endX][endY];
+  return false;
 }
 
 void printSolution(){
@@ -352,9 +339,7 @@ void* analyzeDotPair(void* input){
   int nextPointX;
   int nextPointY;
   int nextPoint;
-  
-  std::set<int> checkBlank;
-  
+
   MapInfo* tmpSolution;
   
   curPathNode.cur = startComb;
@@ -441,18 +426,18 @@ void* analyzeDotPair(void* input){
     }
     else{
       if (!isCollide(&curPathNode, nextPointX, nextPointY)){
-        checkBlank.clear();
+        
         sepTocomb(nextPoint, nextPointX, nextPointY)
-        if (searchPath(data->colorIdx, &tmpMap, &checkBlank, &nextPoint)){
+        if (searchPath(data->colorIdx, &tmpMap, &nextPoint)){
           tmpMap = curPathNode.pathMap;
           tmpMap.insert(std::pair<int, int>(std::pair<int, int>(nextPoint, data->colorIdx)));
           insert = true;
           for (int i = data->colorIdx + 1; i < colorList.size(); ++i)
-            if (!searchPath( i, &tmpMap, &checkBlank)){
+            if (!searchPath( i, &tmpMap)){
               insert = false;
               break;
             }
-          if (insert && checkBlank.size() == size*size){
+          if (insert){
             BFS.push(PathNodeT(nextPoint, tmpMap));
 #ifdef WHAT
             printMap(&tmpMap);
@@ -529,26 +514,24 @@ void* analyzeDotPair(void* input){
     }
     else{
       if (!isCollide(&curPathNode, nextPointX, nextPointY)){
-        checkBlank.clear();
         sepTocomb(nextPoint, nextPointX, nextPointY)
-        if (searchPath(data->colorIdx, &tmpMap, &checkBlank, &nextPoint)){
+        if (searchPath(data->colorIdx, &tmpMap, &nextPoint)){
           tmpMap = curPathNode.pathMap;
           tmpMap.insert(std::pair<int, int>(std::pair<int, int>(nextPoint, data->colorIdx)));
           insert = true;
           for (int i = data->colorIdx + 1; i < colorList.size(); ++i)
-            if (!searchPath( i, &tmpMap, &checkBlank)){
+            if (!searchPath( i, &tmpMap)){
               insert = false;
               break;
             }
-          if (insert && checkBlank.size() == size*size){
+          if (insert){
             BFS.push(PathNodeT(nextPoint, tmpMap));
 #ifdef WHAT
             printMap(&tmpMap);
 #endif
-            
           }
           //else
-          //std::cout<<colorList[data->colorIdx]<<"\tbad insertion\t"<<BFS.size()<<"\n";
+            //std::cout<<colorList[data->colorIdx]<<"\tbad insertion\t"<<BFS.size()<<"\n";
         }
       }
     }
@@ -615,26 +598,24 @@ void* analyzeDotPair(void* input){
     }
     else{
       if (!isCollide(&curPathNode, nextPointX, nextPointY)){
-        checkBlank.clear();
         sepTocomb(nextPoint, nextPointX, nextPointY)
-        if (searchPath(data->colorIdx, &tmpMap, &checkBlank, &nextPoint)){
+        if (searchPath(data->colorIdx, &tmpMap, &nextPoint)){
           tmpMap = curPathNode.pathMap;
           tmpMap.insert(std::pair<int, int>(std::pair<int, int>(nextPoint, data->colorIdx)));
           insert = true;
           for (int i = data->colorIdx + 1; i < colorList.size(); ++i)
-            if (!searchPath( i, &tmpMap, &checkBlank)){
+            if (!searchPath( i, &tmpMap)){
               insert = false;
               break;
             }
-          if (insert && checkBlank.size() == size*size){
+          if (insert){
             BFS.push(PathNodeT(nextPoint, tmpMap));
 #ifdef WHAT
             printMap(&tmpMap);
 #endif
-            
           }
-          //else
-          //std::cout<<colorList[data->colorIdx]<<"\tbad insertion\t"<<BFS.size()<<"\n";
+  //        else
+    //        std::cout<<colorList[data->colorIdx]<<"\tbad insertion\t"<<BFS.size()<<"\n";
         }
       }
     }
@@ -702,28 +683,26 @@ void* analyzeDotPair(void* input){
     }
     else{
       if (!isCollide(&curPathNode, nextPointX, nextPointY)){
-        checkBlank.clear();
         sepTocomb(nextPoint, nextPointX, nextPointY)
-        if (searchPath(data->colorIdx, &tmpMap, &checkBlank, &nextPoint)){
+        if (searchPath(data->colorIdx, &tmpMap, &nextPoint)){
           tmpMap = curPathNode.pathMap;
           tmpMap.insert(std::pair<int, int>(std::pair<int, int>(nextPoint, data->colorIdx)));
           insert = true;
           for (int i = data->colorIdx + 1; i < colorList.size(); ++i)
-            if (!searchPath( i, &tmpMap, &checkBlank)){
+            if (!searchPath( i, &tmpMap)){
               insert = false;
               break;
             }
-          
-          if (insert && checkBlank.size() == size*size){
+          if (insert){
             BFS.push(PathNodeT(nextPoint, tmpMap));
 #ifdef WHAT
             printMap(&tmpMap);
 #endif
-            
           }
-          //else
-          //std::cout<<colorList[data->colorIdx]<<"\tbad insertion\t"<<BFS.size()<<"\n";
+    //      else
+      //      std::cout<<colorList[data->colorIdx]<<"\tbad insertion\t"<<BFS.size()<<"\n";
         }
+
       }
     }
   }
